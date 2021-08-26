@@ -1,1 +1,2 @@
 # Credit_card_Project
+## I will be doing an analysis to create and find the best methodological classification regression  model to predict fradulent and genuine credit card transactions.I utilized the following 3 supervised regression models:  Random Forest,  K-Nearest Neighbors , and Decision Tree models in order to to predict  and used the the following classification rates to evaluate the performance of each model: accuracy, ROC AUC score , and sensitivity.
