@@ -1,0 +1,275 @@
+---
+title: "Analysis02"
+author: "Marquise Linnear (UG)"
+date: "4/28/2021"
+output:
+  html_document: 
+    theme: default
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align = 'center')
+```
+
+
+```{r, load-packages, include = FALSE}
+# load packages
+library(caret)
+library(ggplot2)
+library(ROSE)
+```
+
+
+
+
+
+```{r read-full-data, warning = FALSE, message = FALSE}
+# read full data
+cc = data.table::fread("creditcard.csv")
+# make response a factor with names instead of numbers
+cc$Class = factor(ifelse(cc$Class == 0, "genuine", "fraud"))
+```
+
+```{r read-subset-data, warning = FALSE, message = FALSE}
+# read subset of data
+set.seed(42)
+sub_idx = sample(nrow(cc), size = 10000)
+cc_sub = cc[sub_idx, ]
+```
+
+***
+
+## Abstract
+
+> I will be doing an analysis to create and find the best methodological classification model to predict fradulent and genuine credit card transactions.I utilized the following 3 supervised regression models:  Random Forest,  K-Nearest Neighbors , and Decision Tree models in order to to predict  and used the the following classification rates to evaluate the performance of each model: accuracy, ROC AUC score , and sensitivity. The Decision Tree Model overall has the most rational AUC score of 0.500.
+
+***
+
+## Introduction
+
+*We have data that contains 284,807 credit card transactions in September of 2013 by European cardholders.The data set set contains variables mostly of principal components variables due to privacy and confidentiality issues, the amount of time between each transaction, the amount taken out, and the whether its genuine or a fraudulent transaction. I will be taking just a mere sample of the 284,807 observations and will only be doing analysis on 10,000 observations only. I would like to know if there is a certain model that can  help predict "genuine" credit card transactions and "fraud" credit transactions of the "Class" variable given in the data-set.Also, I want to see if chosen best model can be able to decipher the unbalanced class ration of fraudulent and genuine class transactions and if other classification metrics are good enough enough to assess the model's performance overall.*
+
+***
+
+## Methods
+
+*I will be utilizing 3 different supervised regression models that gives me the highest predicted performance metrics on accuracy, sensitivity, ROC AUC score  due to the imbalance of class categories of "genuine" and "fraudulent" credit card  transactions.*
+
+
+
+
+### Data
+
+*Each 10,000 rows in the data-set contains numeric information regarding each possible credit card transaction. The columns contains what is the information contained in the rows , which are the variables used within the model and 24 out of the 27 are the principal components estimates, the amount of time  elapsed during each transaction, the amount of money taken out, and the class variable which is the response variable for our models. The feature variables that will be utilized in the models to help us predict will be every  variable except the "Class"variable.I will split the data into training and testing data sets in order to evaluate the models on how well they perform without knowing the true model. The testing data set will be used to analyze the performance  of our models and the training data set will be used to fit our regression models to.*
+
+```{r}
+#set seed for reproducibility 
+set.seed(432)
+cc_idx=createDataPartition(cc_sub$Class,p=0.80,list=FALSE)
+#Training data-set
+cc_trn=cc_sub[cc_idx,]
+#Testing data-set
+cc_tst=cc_sub[-cc_idx,]
+
+
+```
+
+
+```{r}
+# we overall see that the training data-set is very imbalanced an din favor of more genuine credit card transactions.
+prop.table(table(cc_trn$Class))
+
+# we will try to apply a method of both  under and over  sampling to balance out the data before applying  our machine learning methods
+data_balanced_both=ovun.sample(Class~., data=cc_trn,method="both",N = 8000,seed=1,p = 0.50)$data
+table(data_balanced_under$Class)
+
+```
+
+
+
+
+### Modeling
+
+*The modeling methods that I will be considering using are K-nearest neighbors, Decision Tree, and a Random Forest model.The models will all be fitted by using the training data-set and then the testing data-set will be used to evaluate the models performance. I will be comparing  these supervised regression models by evaluating the accuracy of the models, the sensitivity (true positive rate), and ROC Area under Curve rate.I will determine the best model that can detect fraudulent and genuine credit card transactions by seeing which model provide the highest accuracy,sensitivity, and AUC rate.*
+
+
+```{r}
+#(Decision Tree Modeling)
+
+#set seed for reproducibility 
+set.seed(432)
+
+#Utilizing Cross-Validation with 10-Folds
+cv_10=trainControl(method="cv",number=10)
+
+#Setting up Decision Tree Model and fitting to training data-set
+dt_mod=train(Class~.,data=data_balanced_both,method="rpart",trControl=cv_10,preProcess=c("center","scale"),tuneGrid= expand.grid(cp=c(5,10,15,20,25,30,35)))
+
+
+
+#Confusion Matrix
+b=confusionMatrix(data=dt_mod)
+
+
+```
+
+```{r}
+b
+```
+
+
+```{r}
+# (K- Nearest Neighbors Modeling)
+
+# Set seed for reproducibility 
+set.seed(432)
+
+#Setting up Rand Forest Model and fitting it to training data-set
+knn_mod=train(Class~.,data=data_balanced_both,method="knn",trControl=cv_10,preProcess=c("center","scale"),tuneGrid= expand.grid(k=c(5,10,15,20,25,30,35)))
+
+
+
+#Confusion Matrix
+c=confusionMatrix(knn_mod)
+
+
+```
+
+```{r}
+c
+```
+
+
+
+
+```{r}
+#Random Forest Modeling)
+
+# Set seed for reproducibility 
+set.seed(432)
+
+#Setting up Rand Forest Model and fitting it to training data-set
+rf_mod=train(Class~.,data=data_balanced_both,method="rf",trControl=cv_10,preProcess=c("center","scale"),ntrees=100)
+
+
+
+#Confusion Matrix
+d=confusionMatrix(rf_mod)
+```
+
+```{r}
+d
+```
+
+
+
+
+***
+
+## Results
+
+*Overall, we can see that the best model by analyzing the testing AUC rates, accuracy rates, sensitivity rates per each model that the for KNN and Random Forest are both producing nearly a 1 on sensitivity and accuracy and exactly 1.0 on the AUC score after fixing the imbalanced data-set. The Decision Tree produced a .99 accuracy and sensitivity, but a 0.50 AUC rate. This overall shows that it would be best to between RF or KNN model , but a DT model tends to provide a more less bias representation. *
+
+
+
+
+```{r}
+
+
+# Test Accuracy rate of Decision Tree
+y1=mean(cc_tst$Class==predict(dt_mod,cc_tst))
+
+#Test Accuracy rate of KNN
+y2=mean(cc_tst$Class==predict(knn_mod,cc_tst))
+
+#Test Accuracy rate of RF
+y3=mean(cc_tst$Class==predict(rf_mod,cc_tst))
+
+
+
+
+
+#Forming combined list of Accuracy aand AUC rates 
+accuracy=c(y1,y2,y3)
+
+
+#AUC For DT
+pred_dt=predict(dt_mod,cc_tst,method="class")
+roc.curve(cc_tst$Class,predicted = pred_dt,plotit = TRUE)
+
+#AUC For KNN
+pred_knn=predict(knn_mod,cc_tst,method="class")
+roc.curve(cc_tst$Class,predicted = pred_knn,plotit = TRUE)
+
+
+#AUC For RF
+pred_rf=predict(rf_mod,cc_tst,type ="raw")
+roc.curve(cc_tst$Class,predicted = pred_rf,plotit = TRUE)
+
+
+#Labeling each rate by Model 
+x=c("K-Nearest Neighbors","Decision Tree","Random Forest")
+
+#Forming Data-frames from the combined Lists 
+gy=data.frame(x,accuracy)
+
+
+
+
+
+
+#Forming plot of Accuracy 
+ggplot(data=gy, aes(y=accuracy)) +
+  geom_bar(stat='identity',aes(x=x),fill = "blue", colour = "red")+ggtitle("Accuracy Rates")
+
+
+
+
+
+
+```
+
+
+
+```{r}
+#sensitivity for DT
+sensitivity(pred_dt,data_balanced_both$Class)
+
+#sensitivity for knn
+sensitivity(pred_knn,data_balanced_both$Class)
+
+#sensitivity for rf
+sensitivity(pred_rf,data_balanced_both$Class)
+
+
+
+```
+
+
+
+***
+
+## Discussion
+
+*Overall we can see that the Random Forest Model and Decision Tree are the two models to best choose when identifying fraudulent credit card transactions. The Decision tree provided a ROC AUC score of 0.50, compared to nearly 1.0 for RF and KNN models. The sensitivity and accuracy rates for all 3 models were all  primarily 1. Also, by providing both upsampling and downsampling techniques to these models it  improve the class imbalance , but for DT model it didn't improve the AUC score.Overall, would be very hard to tell whether the DT and KNN models can truly predict fraudulent credit card transactions based on the the little amount of data provided in the data given and having to resample the dataset.*
+
+***
+
+## Appendix
+
+Place potential additional information here.
+```{r}
+
+
+
+#Demonstrating the imbalance of "fraudulent" and "genuine" Credit card transactions
+
+#Proportion of Genuine Credit Card transactions
+x=mean(cc_sub$Class=='genuine')
+sprintf("%f is  proportion of Genuine Credit Card Transactions",x)
+#Proportion of Fraud Credit Card transactions
+y=mean(cc_sub$Class=='fraud')
+sprintf("%f is  proportion of Fraud Credit Card Transactions",y)
+```
+
